@@ -1,0 +1,57 @@
+name: ASTRAEON Unity License Diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  request-activation-file:
+    name: Check activation-file route
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Read Unity version
+        id: unity-version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/^m_EditorVersion: //p' ProjectSettings/ProjectVersion.txt | head -n 1)"
+          if [ -z "$VERSION" ]; then
+            echo "Could not read Unity version from ProjectSettings/ProjectVersion.txt" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Project Unity version: $VERSION"
+
+      - name: Request activation file
+        id: activation
+        uses: game-ci/unity-request-activation-file@v2
+        with:
+          unityVersion: ${{ steps.unity-version.outputs.version }}
+
+      - name: Upload activation request if created
+        if: ${{ success() && steps.activation.outputs.filePath != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ASTRAEON-Unity-Activation-Request
+          path: ${{ steps.activation.outputs.filePath }}
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Explain result
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Unity license diagnostic"
+            echo ""
+            echo "- This workflow only tests whether the runner can create an activation-request file."
+            echo "- It does not activate Unity and does not create a valid UNITY_LICENSE secret."
+            echo "- Unity's current official documentation says Unity Personal must be activated through Unity Hub; manual .alf-to-.ulf activation is not supported for Personal."
+            echo "- If the activation request artifact exists, it is diagnostic only. Do not assume it can be exchanged for a Personal license."
+            echo "- The Android APK build still requires a valid Unity license in the repository Actions secret UNITY_LICENSE."
+          } >> "$GITHUB_STEP_SUMMARY"
