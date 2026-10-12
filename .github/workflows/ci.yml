@@ -27,6 +27,8 @@ jobs:
           test -f ProjectSettings/ProjectVersion.txt
           test -f Packages/manifest.json
           test -f Assets/Scripts/Bootstrap.cs
+          test -f Assets/Scenes/Boot.unity
+          test -f ProjectSettings/EditorBuildSettings.asset
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -34,32 +36,37 @@ jobs:
           deps = manifest.get("dependencies", {})
           assert "com.unity.ugui" in deps, "UGUI dependency missing"
           assert "com.unity.render-pipelines.universal" in deps, "URP dependency missing"
-          version = Path("ProjectSettings/ProjectVersion.txt").read_text()
-          assert "6000.0." in version, "Unexpected Unity editor version"
+          assert "6000.0." in Path("ProjectSettings/ProjectVersion.txt").read_text()
           source = Path("Assets/Scripts/Bootstrap.cs").read_text()
           for required in ("ASTRAEON", "BEGIN JOURNEY", "ScreenOrientation.LandscapeLeft"):
               assert required in source, f"Missing expected feature: {required}"
-          print("ASTRAEON project structure and configuration validated.")
+          build_settings = Path("ProjectSettings/EditorBuildSettings.asset").read_text()
+          assert "Assets/Scenes/Boot.unity" in build_settings
+          print("ASTRAEON project structure and build configuration validated.")
           PY
-      - name: APK build prerequisite status
+      - name: Report APK build prerequisite
         shell: bash
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
         run: |
           if [ -z "${UNITY_LICENSE}" ]; then
-            echo "::warning::UNITY_LICENSE secret is not configured. APK export is skipped; source validation is not an APK build."
-            echo "Configure a valid Unity license in repository Actions secrets to enable Android export."
+            echo "::warning::UNITY_LICENSE is not configured. CI validates the project but cannot produce an APK yet."
           else
-            echo "Unity license secret detected. Android export is enabled in the next build stage."
+            echo "Unity license secret detected; Android APK job will attempt a build."
           fi
 
   android-apk:
     name: Build Android ARM64 APK
     runs-on: ubuntu-latest
-    if: ${{ secrets.UNITY_LICENSE != '' }}
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
     steps:
       - uses: actions/checkout@v4
+      - name: Skip APK build when Unity license is missing
+        if: ${{ env.UNITY_LICENSE == '' }}
+        run: echo "::warning::APK build skipped. Add a valid UNITY_LICENSE repository Actions secret to enable Unity builds."
       - name: Build APK with Unity
+        if: ${{ env.UNITY_LICENSE != '' }}
         uses: game-ci/unity-builder@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -67,10 +74,12 @@ jobs:
           targetPlatform: Android
           androidAppBundle: false
           androidExportType: androidPackage
+          androidArchitecture: ARM64
           buildName: ASTRAEON
           buildsPath: builds
           versioning: Semantic
       - name: Upload APK
+        if: ${{ env.UNITY_LICENSE != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: ASTRAEON-Android-ARM64
