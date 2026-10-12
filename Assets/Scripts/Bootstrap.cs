@@ -59,18 +59,15 @@ namespace Astraeon
 
             var title = Label("Title", canvas.transform, "ASTRAEON", 88, new Color(0.91f, 0.89f, 0.78f), TextAnchor.MiddleCenter);
             title.fontStyle = FontStyle.Bold;
-            title.characterSpacing = 8;
             Place(title.rectTransform, new Vector2(0.5f, 0.64f), new Vector2(0.5f, 0.64f), Vector2.zero, new Vector2(1100, 130));
 
             var subtitle = Label("Subtitle", canvas.transform, "ETERNAL DOMINION", 24, new Color(0.49f, 0.68f, 0.64f), TextAnchor.MiddleCenter);
-            subtitle.characterSpacing = 5;
             Place(subtitle.rectTransform, new Vector2(0.5f, 0.565f), new Vector2(0.5f, 0.565f), Vector2.zero, new Vector2(900, 48));
 
             var line = Panel("Divider", canvas.transform, new Color(0.57f, 0.63f, 0.43f, 0.85f));
             Place(line.rectTransform, new Vector2(0.5f, 0.525f), new Vector2(0.5f, 0.525f), Vector2.zero, new Vector2(360, 2));
 
             var description = Label("Description", canvas.transform, "THE AGE OF ASHES AWAITS", 23, new Color(0.69f, 0.72f, 0.72f), TextAnchor.MiddleCenter);
-            description.characterSpacing = 2;
             Place(description.rectTransform, new Vector2(0.5f, 0.45f), new Vector2(0.5f, 0.45f), Vector2.zero, new Vector2(900, 55));
 
             var play = Button("BeginJourney", canvas.transform, "BEGIN JOURNEY", new Vector2(0.5f, 0.315f), new Vector2(420, 88), true);
@@ -130,7 +127,6 @@ namespace Astraeon
             var label = Label("Label", go.transform, caption, primary ? 26 : 20, new Color(0.94f, 0.93f, 0.84f), TextAnchor.MiddleCenter);
             Stretch(label.rectTransform);
             label.fontStyle = FontStyle.Bold;
-            label.characterSpacing = primary ? 3 : 2;
             return button;
         }
 
