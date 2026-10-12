@@ -1,0 +1,79 @@
+name: ASTRAEON Unity CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: astraeon-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Unity project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate required project files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f ProjectSettings/ProjectVersion.txt
+          test -f Packages/manifest.json
+          test -f Assets/Scripts/Bootstrap.cs
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("Packages/manifest.json").read_text())
+          deps = manifest.get("dependencies", {})
+          assert "com.unity.ugui" in deps, "UGUI dependency missing"
+          assert "com.unity.render-pipelines.universal" in deps, "URP dependency missing"
+          version = Path("ProjectSettings/ProjectVersion.txt").read_text()
+          assert "6000.0." in version, "Unexpected Unity editor version"
+          source = Path("Assets/Scripts/Bootstrap.cs").read_text()
+          for required in ("ASTRAEON", "BEGIN JOURNEY", "ScreenOrientation.LandscapeLeft"):
+              assert required in source, f"Missing expected feature: {required}"
+          print("ASTRAEON project structure and configuration validated.")
+          PY
+      - name: APK build prerequisite status
+        shell: bash
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        run: |
+          if [ -z "${UNITY_LICENSE}" ]; then
+            echo "::warning::UNITY_LICENSE secret is not configured. APK export is skipped; source validation is not an APK build."
+            echo "Configure a valid Unity license in repository Actions secrets to enable Android export."
+          else
+            echo "Unity license secret detected. Android export is enabled in the next build stage."
+          fi
+
+  android-apk:
+    name: Build Android ARM64 APK
+    runs-on: ubuntu-latest
+    if: ${{ secrets.UNITY_LICENSE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build APK with Unity
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          targetPlatform: Android
+          androidAppBundle: false
+          androidExportType: androidPackage
+          buildName: ASTRAEON
+          buildsPath: builds
+          versioning: Semantic
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ASTRAEON-Android-ARM64
+          path: builds/Android/*.apk
+          if-no-files-found: error
+          retention-days: 14
